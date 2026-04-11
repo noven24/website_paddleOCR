@@ -1,7 +1,8 @@
 Flask
 flask-cors
-# PENTING: Numpy harus < 2.0 karena paddlepaddle 2.6.2 dikompilasi untuk numpy 1.x
+# PENTING: Numpy < 2.0 wajib karena paddlepaddle 2.6.2 dikompilasi untuk numpy 1.x
+# (Numpy sudah diinstall duluan di Dockerfile sebelum file ini dibaca)
 numpy>=1.23.0,<2.0
-paddlepaddle==2.6.2
 paddleocr==2.7.3
 opencv-python-headless
+Pillow
