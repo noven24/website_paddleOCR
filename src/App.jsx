@@ -164,12 +164,19 @@ function App() {
         {/* Hero Section */}
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
-            Ubah Gambar Menjadi <span className="text-primary">Data</span>
+            Bantu Baca <span className="text-primary">Obat</span>
           </h2>
-          <p className="text-lg text-surface-600 dark:text-surface-400">
-            Platform Model as a Service (MaaS) berbasis Optical Character Recognition tercanggih.
-            Proses ekstrak teks secara instan dan akurat.
+          <p className="text-xl text-surface-600 dark:text-surface-400 mb-6">
+            Aplikasi khusus untuk kakek dan nenek. Foto bungkus obat, dan kami akan membantu membacakan apa nama obatnya dan fungsinya dengan mudah.
           </p>
+          
+          {/* Kotak Peringatan Medis di Halaman Depan */}
+          <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700/50 p-4 rounded-2xl text-left shadow-sm">
+            <span className="text-3xl hidden sm:block">⚠️</span>
+            <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+              <strong>Perhatian:</strong> Aplikasi ini hanyalah "Alat Bantu" pembaca label, BUKAN pengganti resep atau nasihat dokter. Jika Kakek/Nenek merasa ragu, tolong jangan diminum dulu.
+            </p>
+          </div>
         </div>
 
         {/* Content Area */}
@@ -186,16 +193,24 @@ function App() {
 
           <AnimatePresence mode="wait">
 
-            {/* Loading Spinner */}
+            {/* Loading Indicator Besar Khusus Lansia */}
             {isLoading && (
               <motion.div
                 key="loading"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="flex justify-center my-12"
+                className="flex flex-col items-center justify-center my-16 gap-8 text-center"
               >
-                <LoadingSpinner />
+                <div className="w-24 h-24 border-8 border-surface-200 dark:border-surface-800 border-t-primary rounded-full animate-spin"></div>
+                <div>
+                  <h2 className="text-3xl md:text-5xl font-bold text-surface-800 dark:text-surface-100 mb-4 px-4 leading-tight">
+                    Sedang membaca obat...
+                  </h2>
+                  <p className="text-2xl text-surface-600 dark:text-surface-400">
+                    Tunggu sebentar ya, jangan ditutup layarnya.
+                  </p>
+                </div>
               </motion.div>
             )}
 
@@ -209,11 +224,11 @@ function App() {
               >
                 <div className="flex justify-between items-end mb-6">
                   <div>
-                    <h3 className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
-                      Hasil Ekstraksi
+                    <h3 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+                      Fungsi Obat Anda
                     </h3>
-                    <p className="text-surface-500 dark:text-surface-400 text-sm mt-1">
-                      Berhasil mengekstrak {resultData.total_text} baris teks.
+                    <p className="text-surface-500 dark:text-surface-400 text-lg mt-1">
+                      Berikut adalah penjelasan sederhana dari obat ini:
                     </p>
                   </div>
                   <button

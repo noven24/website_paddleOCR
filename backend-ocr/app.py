@@ -1,8 +1,23 @@
 import os
 import uuid
+import json
 import traceback
 from flask import Flask, request, jsonify
+from supabase import create_client, Client
 from flask_cors import CORS
+from dotenv import load_dotenv
+from google import genai
+
+load_dotenv()
+
+# Initialize Gemini Client
+gemini_client = None
+if os.environ.get("GEMINI_API_KEY"):
+    try:
+        gemini_client = genai.Client()
+    except Exception as e:
+        print(f"Failed to initialize Gemini Client: {e}")
+
 
 # Set thread environment SEBELUM import paddle apapun
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -13,15 +28,18 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['FLAGS_use_mkldnn'] = '0'
 os.environ['FLAGS_mkldnn_cache_capacity'] = '0'
 os.environ['DNNL_DEFAULT_FPMATH_MODE'] = 'F32'
+os.environ['FLAGS_enable_pir_api'] = '0' # Nonaktifkan PIR di PaddlePaddle 3.x
+
 
 # 1. IMPORT DAN INISIALISASI PADDLEOCR v2.7.3
 from paddleocr import PaddleOCR
 from PIL import Image as PILImage
 
 ocr_model = PaddleOCR(
-    use_angle_cls=True,
+    use_textline_orientation=True,
     lang='en',
-    show_log=False
+    use_mkldnn=False,
+    enable_mkldnn=False
 )
 
 app = Flask(__name__)
@@ -60,8 +78,8 @@ def preprocess_image(input_path, output_path):
                 background.paste(img)
             img = background
 
-        # Resize jika dimensi terlalu besar (PaddleOCR struggle di atas 2000px)
-        MAX_DIM = 2000
+        # Resize jika dimensi terlalu besar untuk menghemat memori (RAM)
+        MAX_DIM = 1000
         width, height = img.size
         if max(width, height) > MAX_DIM:
             ratio = MAX_DIM / max(width, height)
@@ -71,6 +89,9 @@ def preprocess_image(input_path, output_path):
 
         # Simpan gambar yang sudah diproses
         img.save(output_path, 'PNG', optimize=False)
+        
+        # Bersihkan memori image
+        img.close()
         return True
 
     except Exception as e:
@@ -129,9 +150,10 @@ def proses_ocr_untuk_api(image_path):
             print('[OCR] Mendeteksi error oneDNN/MKL, mencoba reinisialisasi model...')
             try:
                 ocr_model = PaddleOCR(
-                    use_angle_cls=True,
+                    use_textline_orientation=True,
                     lang='en',
-                    show_log=False
+                    use_mkldnn=False,
+                    enable_mkldnn=False
                 )
                 result = ocr_model.ocr(image_path)
                 if result and result != [None] and result[0]:
@@ -164,7 +186,85 @@ def proses_ocr_untuk_api(image_path):
             "data": []
         }
 
-# 5. ENDPOINT FLASK API
+# Inisialisasi Supabase
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_KEY")
+supabase: Client = None
+if supabase_url and supabase_key:
+    try:
+        supabase = create_client(supabase_url, supabase_key)
+        print("[Supabase] Berhasil terhubung ke database cloud.")
+    except Exception as e:
+        print(f"[Supabase Error] Gagal inisialisasi: {e}")
+else:
+    print("[Supabase Warning] SUPABASE_URL atau SUPABASE_KEY belum diatur di .env")
+
+# 5. FUNGSI GEMINI
+def get_gemini_summary(ocr_texts):
+    if not gemini_client:
+        return "Maaf Kakek/Nenek, asisten AI belum diaktifkan (API Key belum diatur)."
+    
+    if not ocr_texts:
+        return "Tidak ada teks yang bisa dianalisis."
+    
+    gabungan_teks = " ".join(ocr_texts)
+    prompt = f"""Kamu adalah asisten ekstraksi data. Dari teks hasil OCR berikut, temukan HANYA nama obatnya. 
+Jika kamu menemukan nama obat (seperti Paracetamol, Amlodipine, Promag, dll), balas dengan NAMA OBAT SAJA tanpa kalimat lain, tanpa tanda baca. 
+Jika tidak ada nama obat yang dikenali, balas dengan teks "TIDAK DITEMUKAN". 
+Teks OCR: {gabungan_teks}"""
+    
+    try:
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        
+        extracted_name = response.text.strip().lower()
+        print(f"[Gemini Extracted] {extracted_name}")
+        
+        if extracted_name == "tidak ditemukan" or not extracted_name:
+            return "Maaf Kakek/Nenek, nama obat tidak ditemukan atau tidak terbaca dengan jelas."
+        
+        # Cari di Supabase
+        if supabase:
+            try:
+                # Cari menggunakan ilike agar partial match (case-insensitive) tetap tertangkap
+                result = supabase.table('obat').select('*').ilike('nama_obat', f'%{extracted_name}%').execute()
+                if result.data and len(result.data) > 0:
+                    return result.data[0]['deskripsi']
+            except Exception as e:
+                print(f"[Supabase Read Error] {e}")
+                
+        # Jika tidak ditemukan di Supabase, minta Gemini untuk menjelaskan obat tersebut
+        print(f"[Gemini] Obat '{extracted_name}' tidak ada di Supabase, meminta penjelasan ke AI...")
+        prompt_penjelasan = f"Jelaskan fungsi obat {extracted_name.title()} dalam maksimal 2 kalimat menggunakan bahasa Indonesia yang sangat sederhana dan sopan untuk orang tua (kakek/nenek). Jangan gunakan istilah medis."
+        
+        try:
+            res_penjelasan = gemini_client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt_penjelasan,
+            )
+            penjelasan_baru = res_penjelasan.text.strip()
+            
+            # Simpan ke Supabase
+            if supabase:
+                try:
+                    supabase.table('obat').insert({'nama_obat': extracted_name, 'deskripsi': penjelasan_baru}).execute()
+                    print(f"[DB] Obat baru '{extracted_name}' berhasil ditambahkan ke Supabase")
+                except Exception as e:
+                    print(f"[DB Error] Gagal menyimpan ke Supabase: {e}")
+                
+            return penjelasan_baru
+            
+        except Exception as e:
+            print(f"[Gemini Error - Penjelasan] {str(e)}")
+            return f"Maaf Kakek/Nenek, obat '{extracted_name.title()}' terbaca, namun terjadi kesalahan saat mencari fungsinya."
+        
+    except Exception as e:
+        print(f"[Gemini Error] {str(e)}")
+        return "Maaf Kakek/Nenek, terjadi kesalahan saat menghubungi asisten AI."
+
+# 6. ENDPOINT FLASK API
 @app.route('/ocr', methods=['POST'])
 def ocr_endpoint():
     if 'image' not in request.files:
@@ -191,6 +291,12 @@ def ocr_endpoint():
 
         hasil = proses_ocr_untuk_api(ocr_input)
 
+        if hasil.get("status") == "success" and hasil.get("total_text", 0) > 0:
+            ocr_texts = [item["text"] for item in hasil.get("data", [])]
+            hasil["gemini_summary"] = get_gemini_summary(ocr_texts)
+        else:
+            hasil["gemini_summary"] = "Maaf Kakek/Nenek, tulisan pada obat tidak terlihat jelas."
+
     except Exception as e:
         error_msg = f"Exception: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
         return jsonify({"status": "error", "message": error_msg, "data": []})
@@ -200,6 +306,10 @@ def ocr_endpoint():
         for path in [raw_path, processed_path]:
             if os.path.exists(path):
                 os.remove(path)
+                
+        # Bersihkan memori RAM
+        import gc
+        gc.collect()
 
     return jsonify(hasil)
 

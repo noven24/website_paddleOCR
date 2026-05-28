@@ -39,3 +39,5 @@ temp_upload.png
 
 # PaddleOCR / EasyOCR model cache (terlalu besar)
 .paddleocr/
+backend-ocr/.env
+backend-ocr/temp_*

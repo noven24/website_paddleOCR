@@ -85,12 +85,12 @@ export default function UploadArea({ onExtract, isLoading }) {
             <div className="p-4 rounded-full bg-primary/10 text-primary mb-4 group-hover:scale-110 transition-transform duration-300">
               <UploadCloud className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Unggah Gambar Dokumen</h3>
-            <p className="text-surface-500 dark:text-surface-400 text-sm max-w-sm mb-6">
-              Drag & drop gambar Anda ke sini, atau klik untuk menelusuri dari perangkat lunak. Mendukung file JPG dan PNG.
+            <h3 className="text-3xl font-semibold mb-3">Pilih atau Foto Obat Anda</h3>
+            <p className="text-surface-500 dark:text-surface-400 text-lg max-w-md mb-8">
+              Ketuk di sini untuk mengambil foto bungkus obat menggunakan kamera HP Anda, atau pilih foto dari galeri.
             </p>
-            <button className="px-5 py-2.5 bg-surface-900 dark:bg-surface-50 text-surface-50 dark:text-surface-900 rounded-full font-medium text-sm hover:scale-105 transition-transform active:scale-95 shadow-md hover:shadow-lg">
-              Pilih File
+            <button className="px-8 py-4 bg-surface-900 dark:bg-surface-50 text-surface-50 dark:text-surface-900 rounded-full font-bold text-xl hover:scale-105 transition-transform active:scale-95 shadow-md hover:shadow-lg">
+              Ketuk Untuk Mulai
             </button>
           </motion.div>
         ) : (
@@ -129,9 +129,9 @@ export default function UploadArea({ onExtract, isLoading }) {
               <button
                 onClick={() => onExtract(selectedFile, previewUrl)}
                 disabled={isLoading}
-                className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                className="w-full px-8 py-5 bg-gradient-to-r from-primary to-purple-500 text-white rounded-full font-bold text-xl shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               >
-                Ekstrak Teks Sekarang
+                Bantu Bacakan Fungsi Obat Ini
               </button>
             </div>
           </motion.div>

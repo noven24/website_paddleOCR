@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.49.1",
+    "@google/generative-ai": "^0.24.1",
     "@tailwindcss/vite": "^4.2.2",
     "axios": "^1.14.0",
     "clsx": "^2.1.1",
